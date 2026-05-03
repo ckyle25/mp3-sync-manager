@@ -1,0 +1,119 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Mp3SyncManager.ViewModels"
+        xmlns:views="using:Mp3SyncManager.Views"
+        xmlns:models="using:Mp3SyncManager.Models"
+        xmlns:conv="using:Avalonia.Data.Converters"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="960" d:DesignHeight="620"
+        x:Class="Mp3SyncManager.Views.MainWindow"
+        x:DataType="vm:MainViewModel"
+        Icon="/Assets/avalonia-logo.ico"
+        Title="Music Manager"
+        MinWidth="700" MinHeight="480"
+        Width="960" Height="620">
+
+    <DockPanel LastChildFill="True">
+
+        <!-- Header bar: only shown when two-pane shell is active -->
+        <Border DockPanel.Dock="Top"
+                IsVisible="{Binding IsShellVisible}"
+                Background="#F5F5F5"
+                BorderBrush="#DEDEDE"
+                BorderThickness="0,0,0,1"
+                Padding="16,0">
+            <DockPanel Height="52">
+
+                <!-- App title -->
+                <TextBlock Text="Music Manager"
+                           FontSize="15"
+                           FontWeight="SemiBold"
+                           VerticalAlignment="Center"
+                           DockPanel.Dock="Left" />
+
+                <!-- Device selector (right side, stable width) -->
+                <Panel DockPanel.Dock="Right" VerticalAlignment="Center" MinWidth="260">
+                    <!-- Active device selector -->
+                    <StackPanel Orientation="Horizontal"
+                                IsVisible="{Binding IsDeviceSectionVisible}"
+                                Spacing="8">
+                        <TextBlock Text="Player:"
+                                   VerticalAlignment="Center"
+                                   Foreground="#555" />
+                        <ComboBox ItemsSource="{Binding AvailableDevices}"
+                                  SelectedItem="{Binding SelectedDevice, Mode=TwoWay}"
+                                  MinWidth="220"
+                                  VerticalAlignment="Center">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate x:DataType="models:DetectedDevice">
+                                    <TextBlock Text="{Binding DisplayName}" />
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                    </StackPanel>
+                    <!-- No player placeholder -->
+                    <TextBlock IsVisible="{Binding !IsDeviceSectionVisible}"
+                               Text="No player connected"
+                               Foreground="#AAA"
+                               FontSize="13"
+                               VerticalAlignment="Center"
+                               HorizontalAlignment="Right" />
+                </Panel>
+
+                <!-- Source warning banner (center, only when SourceWarningVisible) -->
+                <Border IsVisible="{Binding SourceWarningVisible}"
+                        Background="#FFF3CD"
+                        BorderBrush="#FFCC00"
+                        BorderThickness="1"
+                        CornerRadius="4"
+                        Padding="12,6"
+                        Margin="16,0"
+                        VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                        <TextBlock Text="Music folder not found."
+                                   Foreground="#856404"
+                                   FontSize="13"
+                                   VerticalAlignment="Center" />
+                        <Button Content="Choose New Folder"
+                                Command="{Binding NavigateToSetupCommand}"
+                                Padding="10,3"
+                                FontSize="12" />
+                    </StackPanel>
+                </Border>
+
+            </DockPanel>
+        </Border>
+
+        <!-- Main body: setup mode or shell mode, fills remaining space -->
+        <Panel>
+
+            <!-- Setup mode: full-screen, driven by ViewLocator -->
+            <ContentControl IsVisible="{Binding !IsShellVisible}"
+                            Content="{Binding CurrentPage}" />
+
+            <!-- Shell mode: two-pane layout -->
+            <Grid IsVisible="{Binding IsShellVisible}"
+                  ColumnDefinitions="*,6,*">
+
+                <views:LibraryView Grid.Column="0"
+                                   DataContext="{Binding LibraryViewModel}" />
+
+                <GridSplitter Grid.Column="1"
+                              Width="6"
+                              ResizeBehavior="PreviousAndNext"
+                              ResizeDirection="Columns"
+                              Background="#DEDEDE"
+                              HorizontalAlignment="Stretch"
+                              VerticalAlignment="Stretch" />
+
+                <views:DeviceView Grid.Column="2"
+                                  DataContext="{Binding DeviceViewModel}" />
+
+            </Grid>
+
+        </Panel>
+
+    </DockPanel>
+
+</Window>

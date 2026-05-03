@@ -1,0 +1,153 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Mp3SyncManager.ViewModels"
+             xmlns:models="using:Mp3SyncManager.Models"
+             xmlns:conv="using:Avalonia.Data.Converters"
+             x:Class="Mp3SyncManager.Views.LibraryView"
+             x:DataType="vm:LibraryViewModel">
+
+    <DockPanel>
+
+        <!-- Pane header -->
+        <Border DockPanel.Dock="Top"
+                Background="#FAFAFA"
+                BorderBrush="#E8E8E8"
+                BorderThickness="0,0,1,1"
+                Padding="16,0">
+            <DockPanel Height="48">
+                <TextBlock Text="Music Library"
+                           FontSize="14"
+                           FontWeight="SemiBold"
+                           VerticalAlignment="Center"
+                           DockPanel.Dock="Left" />
+                <Button Content="Refresh"
+                        Command="{Binding RefreshCommand}"
+                        DockPanel.Dock="Right"
+                        VerticalAlignment="Center"
+                        Padding="12,4" />
+            </DockPanel>
+        </Border>
+
+        <!-- Content area -->
+        <Grid>
+
+            <!-- Panel A: source folder missing -->
+            <StackPanel IsVisible="{Binding SourceFolderMissing}"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        MaxWidth="280"
+                        Spacing="8">
+                <TextBlock Text="Folder Not Found"
+                           FontSize="16"
+                           FontWeight="SemiBold"
+                           HorizontalAlignment="Center"
+                           Foreground="#C05000" />
+                <TextBlock Text="The music folder is no longer available. Use the &quot;Choose New Folder&quot; button at the top of the window."
+                           TextWrapping="Wrap"
+                           TextAlignment="Center"
+                           Foreground="#777"
+                           FontSize="13" />
+            </StackPanel>
+
+            <!-- Panel B: folder ok, no MP3 files -->
+            <StackPanel IsVisible="{Binding ShowEmptyLibraryMessage}"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        MaxWidth="280"
+                        Spacing="8">
+                <TextBlock Text="No Music Files"
+                           FontSize="16"
+                           FontWeight="SemiBold"
+                           HorizontalAlignment="Center"
+                           Foreground="#444" />
+                <TextBlock Text="No music files were found in your folder. Add some songs and click Refresh."
+                           TextWrapping="Wrap"
+                           TextAlignment="Center"
+                           Foreground="#777"
+                           FontSize="13" />
+                <Button Content="Refresh"
+                        Command="{Binding RefreshCommand}"
+                        HorizontalAlignment="Center"
+                        Margin="0,4,0,0"
+                        Padding="16,6" />
+            </StackPanel>
+
+            <!-- Panel C: file list -->
+            <DockPanel IsVisible="{Binding HasFiles}">
+
+                <!-- 1. Path label: docked top -->
+                <TextBlock DockPanel.Dock="Top"
+                           Text="{Binding SourceFolderName, StringFormat='Source: {}{0}'}"
+                           FontSize="12"
+                           Foreground="#777"
+                           Margin="16,8,16,4"
+                           TextTrimming="CharacterEllipsis"
+                           ToolTip.Tip="{Binding SourceFolderPath}" />
+
+                <!-- 2. Action bar: docked bottom (flush at the real bottom) -->
+                <Border DockPanel.Dock="Bottom"
+                        Background="#F5F5F5"
+                        BorderBrush="#E8E8E8"
+                        BorderThickness="0,1,0,0"
+                        Padding="12,10">
+                    <StackPanel Spacing="6">
+                        <Button Content="Add to Player"
+                                Command="{ReflectionBinding $parent[Window].DataContext.CopyToDeviceCommand}"
+                                Padding="16,6"
+                                HorizontalAlignment="Left" />
+                        <TextBlock Text="{ReflectionBinding $parent[Window].DataContext.CopyStatusMessage}"
+                                   IsVisible="{ReflectionBinding $parent[Window].DataContext.CopyStatusMessage, Converter={x:Static conv:ObjectConverters.IsNotNull}}"
+                                   FontSize="12"
+                                   Foreground="#555"
+                                   TextWrapping="Wrap" />
+                    </StackPanel>
+                </Border>
+
+                <!-- 3. Progress bar: docked bottom (sits just above the action bar) -->
+                <ProgressBar DockPanel.Dock="Bottom"
+                             IsVisible="{ReflectionBinding $parent[Window].DataContext.IsCopying}"
+                             Value="{ReflectionBinding $parent[Window].DataContext.CopyProgressPercent}"
+                             Minimum="0"
+                             Maximum="100"
+                             Height="4"
+                             Margin="0"
+                             CornerRadius="0" />
+
+                <!-- 4. Filename label: docked bottom (sits just above the progress bar) -->
+                <TextBlock DockPanel.Dock="Bottom"
+                           Text="{ReflectionBinding $parent[Window].DataContext.CopyProgressFileName}"
+                           IsVisible="{ReflectionBinding $parent[Window].DataContext.IsCopying}"
+                           FontSize="11"
+                           Foreground="#777"
+                           Margin="12,4,12,0"
+                           TextTrimming="CharacterEllipsis" />
+
+                <!-- 5. File list: fills remaining space -->
+                <ListBox ItemsSource="{Binding Files}"
+                         SelectionMode="Multiple"
+                         SelectedItems="{Binding SelectedFiles}"
+                         Margin="8,4,8,8">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate x:DataType="models:MusicFile">
+                            <DockPanel Margin="4,3">
+                                <TextBlock DockPanel.Dock="Right"
+                                           Text="{Binding FileSizeFormatted}"
+                                           Foreground="#999"
+                                           FontSize="12"
+                                           VerticalAlignment="Center"
+                                           Margin="12,0,0,0" />
+                                <TextBlock Text="{Binding FileName}"
+                                           TextTrimming="CharacterEllipsis"
+                                           VerticalAlignment="Center" />
+                            </DockPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+
+            </DockPanel>
+
+        </Grid>
+
+    </DockPanel>
+
+</UserControl>

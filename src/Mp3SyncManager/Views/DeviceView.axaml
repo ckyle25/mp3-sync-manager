@@ -1,0 +1,136 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Mp3SyncManager.ViewModels"
+             xmlns:models="using:Mp3SyncManager.Models"
+             xmlns:conv="using:Avalonia.Data.Converters"
+             x:Class="Mp3SyncManager.Views.DeviceView"
+             x:DataType="vm:DeviceViewModel">
+
+    <DockPanel>
+
+        <!-- Pane header -->
+        <Border DockPanel.Dock="Top"
+                Background="#FAFAFA"
+                BorderBrush="#E8E8E8"
+                BorderThickness="0,0,0,1"
+                Padding="16,0">
+            <DockPanel Height="48">
+                <TextBlock Text="Music Player"
+                           FontSize="14"
+                           FontWeight="SemiBold"
+                           VerticalAlignment="Center"
+                           DockPanel.Dock="Left" />
+                <Button Content="Refresh"
+                        Command="{Binding RefreshCommand}"
+                        DockPanel.Dock="Right"
+                        VerticalAlignment="Center"
+                        Padding="12,4"
+                        IsVisible="{Binding ActiveDevice, Converter={x:Static conv:ObjectConverters.IsNotNull}}" />
+                <TextBlock Text="{Binding DeviceStorageText}"
+                           IsVisible="{Binding DeviceStorageText, Converter={x:Static conv:ObjectConverters.IsNotNull}}"
+                           FontSize="12"
+                           Foreground="#777"
+                           VerticalAlignment="Center"
+                           Margin="8,0,0,0"
+                           TextTrimming="CharacterEllipsis" />
+            </DockPanel>
+        </Border>
+
+        <!-- Content area -->
+        <DockPanel>
+
+            <!-- Error / status message bar (docked bottom, shown only when set) -->
+            <Border DockPanel.Dock="Bottom"
+                    IsVisible="{Binding StatusMessage, Converter={x:Static conv:ObjectConverters.IsNotNull}}"
+                    Background="#FDECEA"
+                    BorderBrush="#F5C6CB"
+                    BorderThickness="0,1,0,0"
+                    Padding="16,10">
+                <TextBlock Text="{Binding StatusMessage}"
+                           Foreground="#842029"
+                           TextWrapping="Wrap"
+                           FontSize="13" />
+            </Border>
+
+            <!-- State panels -->
+            <Grid>
+
+                <!-- Panel A: no device connected -->
+                <StackPanel IsVisible="{Binding ActiveDevice, Converter={x:Static conv:ObjectConverters.IsNull}}"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            MaxWidth="280"
+                            Spacing="8">
+                    <TextBlock Text="No Player Connected"
+                               FontSize="16"
+                               FontWeight="SemiBold"
+                               HorizontalAlignment="Center"
+                               Foreground="#444" />
+                    <TextBlock Text="Plug in your music player using the USB cable."
+                               TextWrapping="Wrap"
+                               TextAlignment="Center"
+                               Foreground="#777"
+                               FontSize="13" />
+                </StackPanel>
+
+                <!-- Panel B: loading -->
+                <TextBlock IsVisible="{Binding IsLoading}"
+                           Text="Loading your music player…"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"
+                           Foreground="#777"
+                           FontSize="14" />
+
+                <!-- Panel C: device connected, no files -->
+                <StackPanel IsVisible="{Binding ShowEmptyDeviceMessage}"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            MaxWidth="280"
+                            Spacing="8">
+                    <TextBlock Text="No Music Files"
+                               FontSize="16"
+                               FontWeight="SemiBold"
+                               HorizontalAlignment="Center"
+                               Foreground="#444" />
+                    <TextBlock Text="This player has no music on it yet."
+                               TextWrapping="Wrap"
+                               TextAlignment="Center"
+                               Foreground="#777"
+                               FontSize="13" />
+                    <Button Content="Refresh"
+                            Command="{Binding RefreshCommand}"
+                            HorizontalAlignment="Center"
+                            Margin="0,4,0,0"
+                            Padding="16,6" />
+                </StackPanel>
+
+                <!-- Panel D: file list -->
+                <DockPanel IsVisible="{Binding HasFiles}">
+                    <ListBox ItemsSource="{Binding Files}"
+                             SelectedItem="{Binding SelectedFile, Mode=TwoWay}"
+                             Margin="8,8,8,8">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="models:MusicFile">
+                                <DockPanel Margin="4,3">
+                                    <TextBlock DockPanel.Dock="Right"
+                                               Text="{Binding FileSizeFormatted}"
+                                               Foreground="#999"
+                                               FontSize="12"
+                                               VerticalAlignment="Center"
+                                               Margin="12,0,0,0" />
+                                    <TextBlock Text="{Binding FileName}"
+                                               TextTrimming="CharacterEllipsis"
+                                               VerticalAlignment="Center" />
+                                </DockPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </DockPanel>
+
+            </Grid>
+
+        </DockPanel>
+
+    </DockPanel>
+
+</UserControl>

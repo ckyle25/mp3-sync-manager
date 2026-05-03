@@ -1,0 +1,58 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Mp3SyncManager.ViewModels"
+             xmlns:conv="using:Avalonia.Data.Converters"
+             x:Class="Mp3SyncManager.Views.SetupView"
+             x:DataType="vm:SetupViewModel">
+
+    <ScrollViewer>
+        <StackPanel Margin="20" MaxWidth="520" HorizontalAlignment="Center" VerticalAlignment="Center">
+
+            <TextBlock Text="Welcome to Music Manager"
+                       FontSize="20"
+                       FontWeight="Bold"
+                       TextWrapping="Wrap" />
+
+            <TextBlock Text="Choose the folder on your computer that holds your music."
+                       FontSize="14"
+                       Foreground="#555"
+                       TextWrapping="Wrap"
+                       Margin="0,6,0,0" />
+
+            <TextBox Text="{Binding SelectedFolderPath}"
+                     IsReadOnly="True"
+                     PlaceholderText="No folder selected"
+                     Margin="0,8,0,0" />
+
+            <Button Content="Browse…"
+                    Click="OnBrowseClicked"
+                    Margin="0,8,0,0" />
+
+            <Button Content="Check Folder"
+                    Command="{Binding ValidateAndPreviewCommand}"
+                    Margin="0,8,0,0" />
+
+            <TextBlock Text="{Binding ValidationMessage}"
+                       Foreground="OrangeRed"
+                       TextWrapping="Wrap"
+                       IsVisible="{Binding ValidationMessage, Converter={x:Static conv:ObjectConverters.IsNotNull}}"
+                       Margin="0,8,0,0" />
+
+            <StackPanel IsVisible="{Binding ConfirmVisible}"
+                        Margin="0,8,0,0">
+                <TextBlock Text="{Binding Mp3FileCount, StringFormat='Found {}{0} songs — looks good!'}"
+                           TextWrapping="Wrap" />
+                <Button Content="Set as Music Folder"
+                        Command="{Binding ConfirmCommand}"
+                        Margin="0,8,0,0" />
+            </StackPanel>
+
+            <Button Content="Start Over"
+                    Command="{Binding ResetCommand}"
+                    IsVisible="{Binding HasFolderSelected}"
+                    Margin="0,8,0,0" />
+
+        </StackPanel>
+    </ScrollViewer>
+
+</UserControl>
