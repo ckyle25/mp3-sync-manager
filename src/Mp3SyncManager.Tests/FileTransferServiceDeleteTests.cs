@@ -210,7 +210,7 @@ public class FileTransferServiceDeleteTests : IDisposable
     }
 
     [Fact]
-    public async Task CopyFile_DeviceRootNotInDetectedDevices_Throws_InvalidOperation()
+    public async Task CopyFile_DeviceRootNotInDetectedDevices_Throws_DeviceNotAvailable()
     {
         // Arrange — device list is empty (Guard 3 equivalent for copy)
         _deviceDetection.GetCurrentDevices().Returns(new List<DetectedDevice>().AsReadOnly());
@@ -223,7 +223,7 @@ public class FileTransferServiceDeleteTests : IDisposable
             var sourceFile = Path.Combine(sourceFolder, "song.mp3");
             await File.WriteAllTextAsync(sourceFile, "fake mp3 data");
 
-            await Assert.ThrowsAsync<InvalidOperationException>(
+            await Assert.ThrowsAsync<DeviceNotAvailableException>(
                 () => _sut.CopyFileAsync(
                     sourceFile,
                     sourceFolder,

@@ -236,4 +236,58 @@ public class DeviceViewModelTests
 
         _fileTransfer.Received(1).ListFiles(Arg.Any<string>(), Arg.Any<string>(), true);
     }
+
+    [Fact]
+    public async Task DeleteSelectedAsync_WhenFileInList_RemovesFromList()
+    {
+        var file = new MusicFile { FileName = "a.mp3", FullPath = @"E:\a.mp3", FileSizeBytes = 1000 };
+        _sut.ActiveDevice = new DetectedDevice { RootPath = "E:\\" };
+        _sut.Files.Add(file);
+        _sut.SelectedFile = file;
+
+        _fileTransfer.DeleteFileFromDeviceAsync(Arg.Any<string>(), Arg.Any<string>())
+            .Returns(Task.CompletedTask);
+
+        await _sut.DeleteSelectedAsync();
+
+        Assert.Empty(_sut.Files);
+    }
+
+    [Fact]
+    public async Task DeleteSelectedAsync_FileNotFoundOnDevice_SetsFileNotFoundMessage()
+    {
+        var file = new MusicFile { FileName = "a.mp3", FullPath = @"E:\a.mp3", FileSizeBytes = 1000 };
+        _sut.ActiveDevice = new DetectedDevice { RootPath = "E:\\" };
+        _sut.SelectedFile = file;
+
+        _fileTransfer.DeleteFileFromDeviceAsync(Arg.Any<string>(), Arg.Any<string>())
+            .Returns<Task>(_ => throw new FileNotFoundException("not found", @"E:\a.mp3"));
+
+        await _sut.DeleteSelectedAsync();
+
+        Assert.NotNull(_sut.StatusMessage);
+        Assert.Contains("not found", _sut.StatusMessage, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task DeleteSelectedAsync_NullSelectedFile_DoesNotCallService()
+    {
+        _sut.ActiveDevice = new DetectedDevice { RootPath = "E:\\" };
+        _sut.SelectedFile = null;
+
+        await _sut.DeleteSelectedAsync();
+
+        await _fileTransfer.DidNotReceive().DeleteFileFromDeviceAsync(Arg.Any<string>(), Arg.Any<string>());
+    }
+
+    [Fact]
+    public async Task DeleteSelectedAsync_NullActiveDevice_DoesNotCallService()
+    {
+        _sut.ActiveDevice = null;
+        _sut.SelectedFile = new MusicFile { FileName = "a.mp3", FullPath = @"E:\a.mp3", FileSizeBytes = 1000 };
+
+        await _sut.DeleteSelectedAsync();
+
+        await _fileTransfer.DidNotReceive().DeleteFileFromDeviceAsync(Arg.Any<string>(), Arg.Any<string>());
+    }
 }

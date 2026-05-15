@@ -44,6 +44,9 @@ public partial class LibraryViewModel : ViewModelBase
     public LibraryViewModel(IFileTransferService fileTransfer)
     {
         _fileTransfer = fileTransfer;
+        // OnSelectedFilesChanged is never called for the field-initializer default,
+        // so wire CollectionChanged manually here.
+        SubscribeSelectedFiles(_selectedFiles);
     }
 
     partial void OnSourceFolderPathChanged(string value)

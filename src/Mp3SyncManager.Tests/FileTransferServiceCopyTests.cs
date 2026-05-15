@@ -195,7 +195,7 @@ public class FileTransferServiceCopyTests : IDisposable
     }
 
     [Fact]
-    public async Task CopyFile_DeviceNoLongerDetected_ThrowsInvalidOperation()
+    public async Task CopyFile_DeviceNoLongerDetected_ThrowsDeviceNotAvailableException()
     {
         // Arrange: device is no longer present
         _deviceDetection.GetCurrentDevices().Returns(new List<DetectedDevice>().AsReadOnly());
@@ -203,8 +203,8 @@ public class FileTransferServiceCopyTests : IDisposable
         var sourceFile = Path.Combine(_sourceRoot, "song.mp3");
         await File.WriteAllTextAsync(sourceFile, "fake mp3 data");
 
-        // Act & Assert: InvalidOperationException because device is not detected
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+        // Act & Assert: DeviceNotAvailableException because device is not detected
+        await Assert.ThrowsAsync<DeviceNotAvailableException>(() =>
             _sut.CopyFileAsync(
                 sourceFile,
                 _sourceRoot,

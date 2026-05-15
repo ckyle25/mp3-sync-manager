@@ -33,6 +33,12 @@ public partial class LibraryViewModel
 
     private System.Collections.Specialized.NotifyCollectionChangedEventHandler? _selectedFilesCollectionChangedHandler;
 
+    internal void SubscribeSelectedFiles(System.Collections.ObjectModel.ObservableCollection<Mp3SyncManager.Models.MusicFile> collection)
+    {
+        _selectedFilesCollectionChangedHandler = (_, _) => OnPropertyChanged(nameof(HasSelectedFiles));
+        collection.CollectionChanged += _selectedFilesCollectionChangedHandler;
+    }
+
     partial void OnSelectedFilesChanging(System.Collections.ObjectModel.ObservableCollection<Mp3SyncManager.Models.MusicFile>? oldValue,
         System.Collections.ObjectModel.ObservableCollection<Mp3SyncManager.Models.MusicFile> newValue)
     {
@@ -43,7 +49,6 @@ public partial class LibraryViewModel
     partial void OnSelectedFilesChanged(System.Collections.ObjectModel.ObservableCollection<Mp3SyncManager.Models.MusicFile> value)
     {
         OnPropertyChanged(nameof(HasSelectedFiles));
-        _selectedFilesCollectionChangedHandler = (_, _) => OnPropertyChanged(nameof(HasSelectedFiles));
-        value.CollectionChanged += _selectedFilesCollectionChangedHandler;
+        SubscribeSelectedFiles(value);
     }
 }

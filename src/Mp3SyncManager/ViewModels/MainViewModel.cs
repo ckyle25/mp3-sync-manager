@@ -113,77 +113,86 @@ public partial class MainViewModel : ViewModelBase
         var failed = new List<string>();
         bool disconnected = false;
 
-        foreach (var file in files)
+        try
         {
-            CopyProgressFileName = file.FileName;
-            var fileProgress = new Progress<TransferProgress>(p =>
+            foreach (var file in files)
             {
-                double filePercent = total == 0 ? 100 : p.TotalBytes == 0 ? 100 : (double)p.BytesTransferred / p.TotalBytes * 100;
-                CopyProgressPercent = (int)((completed * 100 + filePercent) / total);
-            });
+                CopyProgressFileName = file.FileName;
+                var fileProgress = new Progress<TransferProgress>(p =>
+                {
+                    double filePercent = total == 0 ? 100 : p.TotalBytes == 0 ? 100 : (double)p.BytesTransferred / p.TotalBytes * 100;
+                    CopyProgressPercent = (int)((completed * 100 + filePercent) / total);
+                });
 
-            try
-            {
-                await _fileTransfer.CopyFileAsync(
-                    file.FullPath,
-                    sourceRoot,
-                    device.RootPath,
-                    fileProgress,
-                    overwriteExisting: false,
-                    CancellationToken.None);
-                completed++;
+                try
+                {
+                    await _fileTransfer.CopyFileAsync(
+                        file.FullPath,
+                        sourceRoot,
+                        device.RootPath,
+                        fileProgress,
+                        overwriteExisting: false,
+                        CancellationToken.None);
+                    completed++;
+                }
+                catch (FileAlreadyExistsOnDeviceException)
+                {
+                    skipped.Add($"\"{file.FileName}\" is already on the player.");
+                }
+                catch (DeviceNotAvailableException)
+                {
+                    failed.Add($"\"{file.FileName}\" could not be added. The player may have been disconnected.");
+                    disconnected = true;
+                    break;
+                }
+                catch (Exception)
+                {
+                    failed.Add($"\"{file.FileName}\" could not be added.");
+                }
             }
-            catch (FileAlreadyExistsOnDeviceException)
+
+            if (!disconnected)
+                CopyProgressPercent = 100;
+            CopyProgressFileName = null;
+
+            if (!disconnected)
+                DeviceViewModel.Refresh();
+
+            if (failed.Count == 0 && skipped.Count == 0)
             {
-                skipped.Add($"\"{file.FileName}\" is already on the player.");
+                CopyStatusMessage = completed == 1
+                    ? "Added to your player!"
+                    : $"Added {completed} song{(completed == 1 ? "" : "s")} to your player!";
             }
-            catch (InvalidOperationException)
+            else if (failed.Count == 0 && skipped.Count > 0 && completed > 0)
             {
-                failed.Add($"\"{file.FileName}\" could not be added. The player may have been disconnected.");
-                disconnected = true;
-                break;
+                CopyStatusMessage = $"{completed} song{(completed == 1 ? "" : "s")} added. " +
+                    $"{skipped.Count} {(skipped.Count == 1 ? "song was" : "songs were")} already on the player.";
             }
-            catch (Exception)
+            else if (failed.Count == 0 && skipped.Count > 0 && completed == 0)
             {
-                failed.Add($"\"{file.FileName}\" could not be added.");
+                CopyStatusMessage = skipped.Count == 1
+                    ? "That song is already on the player."
+                    : "All of these songs are already on the player.";
             }
-        }
+            else if (completed > 0)
+            {
+                CopyStatusMessage = $"{completed} song{(completed == 1 ? "" : "s")} added. Some could not be copied.";
+            }
+            else
+            {
+                CopyStatusMessage = disconnected
+                    ? "The player was disconnected. Please reconnect and try again."
+                    : "None of the songs could be added. Please try again.";
+            }
 
-        CopyProgressPercent = 100;
-        CopyProgressFileName = null;
-
-        if (!disconnected)
-            DeviceViewModel.Refresh();
-
-        if (failed.Count == 0 && skipped.Count == 0)
-        {
-            CopyStatusMessage = completed == 1
-                ? "Added to your player!"
-                : $"Added {completed} song{(completed == 1 ? "" : "s")} to your player!";
+            if (disconnected)
+                SelectedDevice = null;
         }
-        else if (failed.Count == 0 && skipped.Count > 0 && completed > 0)
+        finally
         {
-            CopyStatusMessage = $"{completed} song{(completed == 1 ? "" : "s")} added. " +
-                $"{skipped.Count} {(skipped.Count == 1 ? "song was" : "songs were")} already on the player.";
+            IsCopying = false;
         }
-        else if (failed.Count == 0 && skipped.Count > 0 && completed == 0)
-        {
-            CopyStatusMessage = skipped.Count == 1
-                ? "That song is already on the player."
-                : "All of these songs are already on the player.";
-        }
-        else if (completed > 0)
-        {
-            CopyStatusMessage = $"{completed} song{(completed == 1 ? "" : "s")} added. Some could not be copied.";
-        }
-        else
-        {
-            CopyStatusMessage = disconnected
-                ? "The player was disconnected. Please reconnect and try again."
-                : "None of the songs could be added. Please try again.";
-        }
-
-        IsCopying = false;
     }
 
     public async Task InitializeAsync()

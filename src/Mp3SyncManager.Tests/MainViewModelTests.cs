@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using Mp3SyncManager.Models;
 using Mp3SyncManager.Services.Interfaces;
 using Mp3SyncManager.ViewModels;
@@ -242,7 +243,7 @@ public class MainViewModelTests
         fileTransfer.CopyFileAsync(
             Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(),
             Arg.Any<IProgress<TransferProgress>?>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
-            .Returns<Task>(_ => throw new InvalidOperationException("Device at 'E:\\' is no longer detected."));
+            .Returns<Task>(_ => throw new DeviceNotAvailableException("E:\\"));
 
         await vm.CopyToDeviceAsync();
 
@@ -318,7 +319,7 @@ public class MainViewModelTests
         fileTransfer.CopyFileAsync(
             file1.FullPath, Arg.Any<string>(), Arg.Any<string>(),
             Arg.Any<IProgress<TransferProgress>?>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
-            .Returns<Task>(_ => throw new InvalidOperationException("Device disconnected."));
+            .Returns<Task>(_ => throw new DeviceNotAvailableException("E:\\"));
 
         await vm.CopyToDeviceAsync();
 
@@ -414,6 +415,153 @@ public class MainViewModelTests
         Assert.Contains("1 song", vm.CopyStatusMessage, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("already on the player", vm.CopyStatusMessage, StringComparison.OrdinalIgnoreCase);
         Assert.False(vm.IsCopying);
+    }
+
+    [Fact]
+    public void CopyToDeviceCommand_BecomesEnabled_AfterInPlaceAdd_ToInitialSelectedFiles()
+    {
+        // Construct vm and set an active device without replacing SelectedFiles
+        var (vm, _, _, _) = BuildSut();
+        vm.DeviceViewModel.ActiveDevice = MakeDevice();
+
+        // CanExecute should be false before any file is added
+        Assert.False(vm.CopyToDeviceCommand.CanExecute(null));
+
+        // In-place Add — simulates Avalonia ListBox mutating the initial collection
+        vm.LibraryViewModel.SelectedFiles.Add(MakeFile());
+
+        Assert.True(vm.CopyToDeviceCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public async Task CopyToDevice_ExceptionFromRefresh_IsCopyingResetToFalse()
+    {
+        var (vm, _, _, fileTransfer) = BuildSut(loadResult: new AppSettings { SourceFolderPath = @"C:\Music" });
+        vm.DeviceViewModel.ActiveDevice = MakeDevice();
+        vm.LibraryViewModel.SourceFolderPath = @"C:\Music";
+        vm.LibraryViewModel.SelectedFiles = new ObservableCollection<MusicFile> { MakeFile() };
+
+        // CopyFileAsync succeeds
+        fileTransfer.CopyFileAsync(
+            Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(),
+            Arg.Any<IProgress<TransferProgress>?>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+            .Returns(Task.CompletedTask);
+
+        // ListFiles: first call (from ActiveDevice set) returns empty; second call (from Refresh after copy) throws
+        fileTransfer.ListFiles(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>())
+            .Returns(
+                _ => (IReadOnlyList<MusicFile>)new List<MusicFile>().AsReadOnly(),
+                _ => throw new InvalidOperationException("simulated refresh failure"));
+
+        await vm.CopyToDeviceAsync();
+
+        Assert.False(vm.IsCopying);
+    }
+
+    [Fact]
+    public async Task CopyToDevice_DisconnectAbort_ClearsSelectedDevice()
+    {
+        var (vm, _, _, fileTransfer) = BuildSut(loadResult: new AppSettings { SourceFolderPath = @"C:\Music" });
+        var device = MakeDevice();
+        vm.SelectedDevice = device;
+        vm.DeviceViewModel.ActiveDevice = device;
+        vm.LibraryViewModel.SourceFolderPath = @"C:\Music";
+        vm.LibraryViewModel.SelectedFiles = new ObservableCollection<MusicFile> { MakeFile() };
+
+        fileTransfer.CopyFileAsync(
+            Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(),
+            Arg.Any<IProgress<TransferProgress>?>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+            .Returns<Task>(_ => throw new DeviceNotAvailableException("E:\\"));
+
+        await vm.CopyToDeviceAsync();
+
+        Assert.Null(vm.SelectedDevice);
+        Assert.Null(vm.DeviceViewModel.ActiveDevice);
+    }
+
+    [Fact]
+    public async Task CopyToDevice_IOException_ContinuesLoop_SetsGenericFailureMessage()
+    {
+        var (vm, _, _, fileTransfer) = BuildSut(loadResult: new AppSettings { SourceFolderPath = @"C:\Music" });
+        var device = MakeDevice();
+        vm.SelectedDevice = device;
+        vm.DeviceViewModel.ActiveDevice = device;
+        vm.LibraryViewModel.SourceFolderPath = @"C:\Music";
+        var file1 = MakeFile("a.mp3");
+        var file2 = MakeFile("b.mp3");
+        vm.LibraryViewModel.SelectedFiles = new ObservableCollection<MusicFile> { file1, file2 };
+
+        fileTransfer.CopyFileAsync(
+            file1.FullPath, Arg.Any<string>(), Arg.Any<string>(),
+            Arg.Any<IProgress<TransferProgress>?>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+            .Returns<Task>(_ => throw new IOException("disk error"));
+
+        fileTransfer.CopyFileAsync(
+            file2.FullPath, Arg.Any<string>(), Arg.Any<string>(),
+            Arg.Any<IProgress<TransferProgress>?>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+            .Returns(Task.CompletedTask);
+
+        await vm.CopyToDeviceAsync();
+
+        // File 2 must have been attempted (loop did not abort)
+        await fileTransfer.Received(1).CopyFileAsync(
+            file2.FullPath, Arg.Any<string>(), Arg.Any<string>(),
+            Arg.Any<IProgress<TransferProgress>?>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
+
+        // Device was not cleared — it was not a disconnect
+        Assert.NotNull(vm.SelectedDevice);
+
+        // Status message reflects partial success (1 added, 1 failed)
+        Assert.NotNull(vm.CopyStatusMessage);
+        Assert.Contains("1 song", vm.CopyStatusMessage, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task CopyToDevice_AllGenericFailures_ShowsNoneAddedMessage()
+    {
+        var (vm, _, _, fileTransfer) = BuildSut(loadResult: new AppSettings { SourceFolderPath = @"C:\Music" });
+        vm.DeviceViewModel.ActiveDevice = MakeDevice();
+        vm.LibraryViewModel.SourceFolderPath = @"C:\Music";
+        var file1 = MakeFile("a.mp3");
+        var file2 = MakeFile("b.mp3");
+        vm.LibraryViewModel.SelectedFiles = new ObservableCollection<MusicFile> { file1, file2 };
+
+        fileTransfer.CopyFileAsync(
+            Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(),
+            Arg.Any<IProgress<TransferProgress>?>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+            .Returns<Task>(_ => throw new IOException("disk error"));
+
+        await vm.CopyToDeviceAsync();
+
+        Assert.NotNull(vm.CopyStatusMessage);
+        Assert.Equal("None of the songs could be added. Please try again.", vm.CopyStatusMessage);
+    }
+
+    [Fact]
+    public async Task CopyToDevice_PartialSuccessPartialFailure_ShowsPartialCountMessage()
+    {
+        var (vm, _, _, fileTransfer) = BuildSut(loadResult: new AppSettings { SourceFolderPath = @"C:\Music" });
+        vm.DeviceViewModel.ActiveDevice = MakeDevice();
+        vm.LibraryViewModel.SourceFolderPath = @"C:\Music";
+        var file1 = MakeFile("a.mp3");
+        var file2 = MakeFile("b.mp3");
+        vm.LibraryViewModel.SelectedFiles = new ObservableCollection<MusicFile> { file1, file2 };
+
+        fileTransfer.CopyFileAsync(
+            file1.FullPath, Arg.Any<string>(), Arg.Any<string>(),
+            Arg.Any<IProgress<TransferProgress>?>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+            .Returns(Task.CompletedTask);
+
+        fileTransfer.CopyFileAsync(
+            file2.FullPath, Arg.Any<string>(), Arg.Any<string>(),
+            Arg.Any<IProgress<TransferProgress>?>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+            .Returns<Task>(_ => throw new IOException("disk error"));
+
+        await vm.CopyToDeviceAsync();
+
+        Assert.NotNull(vm.CopyStatusMessage);
+        Assert.Contains("1 song", vm.CopyStatusMessage, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("could not be copied", vm.CopyStatusMessage, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

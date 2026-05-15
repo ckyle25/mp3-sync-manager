@@ -100,8 +100,7 @@ public class FileTransferService : IFileTransferService
                 StringComparison.OrdinalIgnoreCase));
 
         if (!isActiveDevice)
-            throw new InvalidOperationException(
-                $"Device at '{deviceRootPath}' is no longer detected as a connected removable drive.");
+            throw new DeviceNotAvailableException(deviceRootPath);
 
         // Destination mirrors the source folder structure so that files from different
         // subdirectories (e.g. Artist1\song.mp3 and Artist2\song.mp3) never collide.

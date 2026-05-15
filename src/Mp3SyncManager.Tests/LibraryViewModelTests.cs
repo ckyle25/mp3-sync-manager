@@ -102,4 +102,33 @@ public class LibraryViewModelTests
 
         Assert.False(_sut.HasSelectedFiles);
     }
+
+    [Fact]
+    public void SelectedFiles_InitialCollection_PropertyChangedRaised_WhenItemAdded()
+    {
+        // Construct a fresh instance (no property replacement) and subscribe PropertyChanged
+        var sut = new LibraryViewModel(_fileTransfer);
+        var raisedNames = new List<string?>();
+        sut.PropertyChanged += (_, e) => raisedNames.Add(e.PropertyName);
+
+        sut.SelectedFiles.Add(new MusicFile { FileName = "a.mp3", FullPath = @"C:\Music\a.mp3", FileSizeBytes = 1 });
+
+        Assert.Contains("HasSelectedFiles", raisedNames);
+    }
+
+    [Fact]
+    public void SelectedFiles_InitialCollection_PropertyChangedRaised_WhenItemRemoved()
+    {
+        // Add an item first (before subscribing), then subscribe and remove
+        var sut = new LibraryViewModel(_fileTransfer);
+        var file = new MusicFile { FileName = "a.mp3", FullPath = @"C:\Music\a.mp3", FileSizeBytes = 1 };
+        sut.SelectedFiles.Add(file);
+
+        var raisedNames = new List<string?>();
+        sut.PropertyChanged += (_, e) => raisedNames.Add(e.PropertyName);
+
+        sut.SelectedFiles.Remove(file);
+
+        Assert.Contains("HasSelectedFiles", raisedNames);
+    }
 }
