@@ -32,6 +32,15 @@
                            VerticalAlignment="Center"
                            DockPanel.Dock="Left" />
 
+                <!-- Change music folder shortcut -->
+                <Button Content="Change Music Folder"
+                        Command="{Binding NavigateToSetupCommand}"
+                        DockPanel.Dock="Left"
+                        VerticalAlignment="Center"
+                        Margin="16,0,0,0"
+                        Padding="10,3"
+                        FontSize="12" />
+
                 <!-- Device selector (right side, stable width) -->
                 <Panel DockPanel.Dock="Right" VerticalAlignment="Center" MinWidth="260">
                     <!-- Active device selector -->
