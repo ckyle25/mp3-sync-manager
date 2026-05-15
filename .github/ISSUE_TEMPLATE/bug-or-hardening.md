@@ -46,7 +46,7 @@ Follow `CLAUDE.md`.
 Use the appropriate Claude subagent(s) explicitly.
 Keep scope limited to this issue only.
 Add or update tests as needed.
-Open or update a PR when complete.
+Open a PR back to main. Do not stop after analysis.
 
 When done, report only:
 1. files changed
