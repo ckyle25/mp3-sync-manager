@@ -23,9 +23,12 @@ public class MainViewModelTests
         fileTransfer.ListFiles(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>())
             .Returns(new List<MusicFile>().AsReadOnly());
 
+        var confirmation = Substitute.For<IConfirmationService>();
+        confirmation.ConfirmDeleteAsync(Arg.Any<string>()).Returns(Task.FromResult(true));
+
         var setupVm = new SetupViewModel(settings, fileTransfer);
         var libraryVm = new LibraryViewModel(fileTransfer);
-        var deviceVm = new DeviceViewModel(fileTransfer);
+        var deviceVm = new DeviceViewModel(fileTransfer, confirmation);
         var vm = new MainViewModel(settings, detection, fileTransfer, setupVm, libraryVm, deviceVm);
         return (vm, settings, detection, fileTransfer);
     }
