@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.Input;
 using Mp3SyncManager.Models;
 using Mp3SyncManager.Services.Interfaces;
 
+
 namespace Mp3SyncManager.ViewModels;
 
 public partial class DeviceViewModel : ViewModelBase
@@ -50,9 +51,12 @@ public partial class DeviceViewModel : ViewModelBase
         }
     }
 
-    public DeviceViewModel(IFileTransferService fileTransfer)
+    private readonly IConfirmationService _confirmation;
+
+    public DeviceViewModel(IFileTransferService fileTransfer, IConfirmationService confirmation)
     {
         _fileTransfer = fileTransfer;
+        _confirmation = confirmation;
     }
 
     partial void OnActiveDeviceChanged(DetectedDevice? value)
@@ -91,6 +95,9 @@ public partial class DeviceViewModel : ViewModelBase
     public async Task DeleteSelectedAsync()
     {
         if (SelectedFile is null || ActiveDevice is null) return;
+
+        var confirmed = await _confirmation.ConfirmDeleteAsync(SelectedFile.FileName);
+        if (!confirmed) return;
 
         try
         {

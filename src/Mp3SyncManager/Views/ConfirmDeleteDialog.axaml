@@ -1,0 +1,39 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="Mp3SyncManager.Views.ConfirmDeleteDialog"
+        Title="Remove Song?"
+        Width="420"
+        SizeToContent="Height"
+        CanResize="False"
+        WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False">
+
+    <Grid Margin="24,20,24,20" RowDefinitions="*,16,Auto">
+
+        <TextBlock Grid.Row="0"
+                   x:Name="MessageText"
+                   TextWrapping="Wrap"
+                   FontSize="14"
+                   LineHeight="22" />
+
+        <StackPanel Grid.Row="2"
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Right"
+                    Spacing="8">
+            <Button x:Name="CancelButton"
+                    Content="Cancel"
+                    MinWidth="80"
+                    Padding="16,6"
+                    Click="OnCancelClicked" />
+            <Button x:Name="ConfirmButton"
+                    Content="Remove from Player"
+                    MinWidth="148"
+                    Padding="16,6"
+                    Background="#C0392B"
+                    Foreground="White"
+                    Click="OnConfirmClicked" />
+        </StackPanel>
+
+    </Grid>
+
+</Window>
