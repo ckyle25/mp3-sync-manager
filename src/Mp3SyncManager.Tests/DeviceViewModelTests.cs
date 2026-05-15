@@ -3,19 +3,25 @@ using Mp3SyncManager.Models;
 using Mp3SyncManager.Services.Interfaces;
 using Mp3SyncManager.ViewModels;
 using NSubstitute;
+using NSubstitute.ExceptionExtensions;
 
 namespace Mp3SyncManager.Tests;
 
 public class DeviceViewModelTests
 {
     private readonly IFileTransferService _fileTransfer;
+    private readonly IConfirmationService _confirmation;
     private readonly DeviceViewModel _sut;
 
     public DeviceViewModelTests()
     {
         _fileTransfer = Substitute.For<IFileTransferService>();
         _fileTransfer.ListFiles(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>()).Returns(new List<MusicFile>().AsReadOnly());
-        _sut = new DeviceViewModel(_fileTransfer);
+
+        _confirmation = Substitute.For<IConfirmationService>();
+        _confirmation.ConfirmDeleteAsync(Arg.Any<string>()).Returns(Task.FromResult(true));
+
+        _sut = new DeviceViewModel(_fileTransfer, _confirmation);
     }
 
     [Fact]
@@ -289,5 +295,61 @@ public class DeviceViewModelTests
         await _sut.DeleteSelectedAsync();
 
         await _fileTransfer.DidNotReceive().DeleteFileFromDeviceAsync(Arg.Any<string>(), Arg.Any<string>());
+    }
+
+    [Fact]
+    public async Task DeleteSelectedAsync_WhenConfirmationCancelled_DoesNotCallDeleteService()
+    {
+        _confirmation.ConfirmDeleteAsync(Arg.Any<string>()).Returns(Task.FromResult(false));
+
+        _sut.ActiveDevice = new DetectedDevice { RootPath = "E:\\" };
+        _sut.SelectedFile = new MusicFile { FileName = "a.mp3", FullPath = @"E:\a.mp3", FileSizeBytes = 1000 };
+
+        await _sut.DeleteSelectedAsync();
+
+        await _fileTransfer.DidNotReceive().DeleteFileFromDeviceAsync(Arg.Any<string>(), Arg.Any<string>());
+    }
+
+    [Fact]
+    public async Task DeleteSelectedAsync_WhenConfirmationCancelled_LeavesFileListUnchanged()
+    {
+        _confirmation.ConfirmDeleteAsync(Arg.Any<string>()).Returns(Task.FromResult(false));
+
+        var file = new MusicFile { FileName = "a.mp3", FullPath = @"E:\a.mp3", FileSizeBytes = 1000 };
+        _sut.ActiveDevice = new DetectedDevice { RootPath = "E:\\" };
+        _sut.Files.Add(file);
+        _sut.SelectedFile = file;
+
+        await _sut.DeleteSelectedAsync();
+
+        Assert.Single(_sut.Files);
+    }
+
+    [Fact]
+    public async Task DeleteSelectedAsync_WhenConfirmed_CallsDeleteService()
+    {
+        _confirmation.ConfirmDeleteAsync(Arg.Any<string>()).Returns(Task.FromResult(true));
+
+        var file = new MusicFile { FileName = "a.mp3", FullPath = @"E:\a.mp3", FileSizeBytes = 1000 };
+        _sut.ActiveDevice = new DetectedDevice { RootPath = "E:\\" };
+        _sut.SelectedFile = file;
+        _fileTransfer.DeleteFileFromDeviceAsync(Arg.Any<string>(), Arg.Any<string>()).Returns(Task.CompletedTask);
+
+        await _sut.DeleteSelectedAsync();
+
+        await _fileTransfer.Received(1).DeleteFileFromDeviceAsync(@"E:\a.mp3", "E:\\");
+    }
+
+    [Fact]
+    public async Task DeleteSelectedAsync_PassesFileNameToConfirmation()
+    {
+        var file = new MusicFile { FileName = "mysong.mp3", FullPath = @"E:\mysong.mp3", FileSizeBytes = 1000 };
+        _sut.ActiveDevice = new DetectedDevice { RootPath = "E:\\" };
+        _sut.SelectedFile = file;
+        _fileTransfer.DeleteFileFromDeviceAsync(Arg.Any<string>(), Arg.Any<string>()).Returns(Task.CompletedTask);
+
+        await _sut.DeleteSelectedAsync();
+
+        await _confirmation.Received(1).ConfirmDeleteAsync("mysong.mp3");
     }
 }

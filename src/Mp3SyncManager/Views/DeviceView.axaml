@@ -106,6 +106,21 @@
 
                 <!-- Panel D: file list -->
                 <DockPanel IsVisible="{Binding HasFiles}">
+
+                    <!-- Action bar -->
+                    <Border DockPanel.Dock="Bottom"
+                            BorderBrush="#E8E8E8"
+                            BorderThickness="0,1,0,0"
+                            Padding="12,8">
+                        <Button Content="Remove from Player"
+                                Command="{Binding DeleteSelectedCommand}"
+                                IsEnabled="{Binding SelectedFile, Converter={x:Static conv:ObjectConverters.IsNotNull}}"
+                                Background="#C0392B"
+                                Foreground="White"
+                                Padding="14,6"
+                                HorizontalAlignment="Right" />
+                    </Border>
+
                     <ListBox ItemsSource="{Binding Files}"
                              SelectedItem="{Binding SelectedFile, Mode=TwoWay}"
                              Margin="8,8,8,8">
@@ -125,6 +140,7 @@
                             </DataTemplate>
                         </ListBox.ItemTemplate>
                     </ListBox>
+
                 </DockPanel>
 
             </Grid>

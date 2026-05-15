@@ -41,6 +41,7 @@ public partial class App : Application
         services.AddSingleton<ISettingsService, SettingsService>();
         services.AddSingleton<IDeviceDetectionService, DeviceDetectionService>();
         services.AddSingleton<IFileTransferService, FileTransferService>();
+        services.AddSingleton<IConfirmationService, ConfirmationService>();
 
         services.AddSingleton<SetupViewModel>();
         services.AddSingleton<LibraryViewModel>();
