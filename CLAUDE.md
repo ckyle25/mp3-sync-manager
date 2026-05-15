@@ -42,3 +42,26 @@ Initial feature priorities:
 4. Browse device music
 5. Copy selected music to device
 6. Remove selected music from device
+
+## Claude coordination rules
+
+Claude is the primary implementing agent for this repository.
+
+When Codex creates or refines GitHub issues for Claude:
+- keep scope narrow and feature-slice based
+- instruct Claude to use explicit Claude subagents where relevant
+- prefer one Claude subagent at a time unless the work is clearly separable
+
+Expected Claude subagent usage:
+- product: issue wording, acceptance criteria, child-friendly wording, UI clarity
+- architect: design decisions, service boundaries, safety constraints
+- frontend-engineer: Avalonia UI and interaction work
+- backend-engineer: models, services, filesystem behavior, tests tied to implementation
+- qa: blockers, regressions, risk review, go/no-go recommendations
+
+Issue-writing rules for Codex:
+- explicitly state which Claude subagent(s) should be used
+- include in-scope and out-of-scope sections
+- include acceptance criteria
+- include tests to add or update
+- include a stop condition such as "do not add additional features"
