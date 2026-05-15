@@ -593,4 +593,87 @@ public class MainViewModelTests
         Assert.Equal(0, vm.CopyProgressPercent);
         Assert.Null(vm.CopyProgressFileName);
     }
+
+    [Fact]
+    public async Task NavigateToSetup_FromConfiguredShell_StopsMonitoringAndClearsDevices()
+    {
+        var (vm, _, detection, _) = BuildSut(loadResult: new AppSettings { SourceFolderPath = Path.GetTempPath() });
+        detection.GetCurrentDevices().Returns(new List<DetectedDevice> { MakeDevice() }.AsReadOnly());
+        await vm.InitializeAsync();
+
+        Assert.True(vm.IsShellVisible);
+
+        vm.NavigateToSetupCommand.Execute(null);
+
+        detection.Received().StopMonitoring();
+        Assert.Empty(vm.AvailableDevices);
+        Assert.Null(vm.SelectedDevice);
+        Assert.False(vm.IsShellVisible);
+        Assert.Equal(vm.SetupViewModel, vm.CurrentPage);
+    }
+
+    [Fact]
+    public async Task NavigateToSetupCommand_WhileCopying_CannotExecute()
+    {
+        var (vm, _, _, fileTransfer) = BuildSut(loadResult: new AppSettings { SourceFolderPath = @"C:\Music" });
+        await vm.InitializeAsync();
+        vm.DeviceViewModel.ActiveDevice = MakeDevice();
+        vm.LibraryViewModel.SourceFolderPath = @"C:\Music";
+        vm.LibraryViewModel.SelectedFiles = new ObservableCollection<MusicFile> { MakeFile() };
+
+        var tcs = new TaskCompletionSource();
+        fileTransfer.CopyFileAsync(
+            Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(),
+            Arg.Any<IProgress<TransferProgress>?>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+            .Returns(_ => tcs.Task);
+
+        var copyTask = Task.Run(() => vm.CopyToDeviceAsync());
+
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (!vm.IsCopying && DateTime.UtcNow < deadline)
+            await Task.Delay(10);
+
+        Assert.True(vm.IsCopying);
+        Assert.False(vm.NavigateToSetupCommand.CanExecute(null));
+
+        tcs.SetResult();
+        await copyTask;
+
+        Assert.False(vm.IsCopying);
+        Assert.True(vm.NavigateToSetupCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public async Task NavigateToSetup_ThenCompleteSetup_ReturnsToShellWithNewSourceFolder()
+    {
+        var tempFolder = Path.GetTempPath();
+        var (vm, settings, detection, fileTransfer) = BuildSut(
+            loadResult: new AppSettings { SourceFolderPath = @"C:\OldMusic" });
+
+        detection.GetCurrentDevices().Returns(new List<DetectedDevice>().AsReadOnly());
+
+        // Start configured
+        await vm.InitializeAsync();
+        Assert.True(vm.IsShellVisible);
+
+        // Navigate to setup from the shell
+        vm.NavigateToSetupCommand.Execute(null);
+        Assert.False(vm.IsShellVisible);
+        Assert.Equal(vm.SetupViewModel, vm.CurrentPage);
+
+        // Complete setup with a new valid folder
+        var newSettings = new AppSettings { SourceFolderPath = tempFolder };
+        settings.SaveAsync(Arg.Any<AppSettings>()).Returns(Task.CompletedTask);
+        fileTransfer.ListFiles(tempFolder, Arg.Any<string>(), Arg.Any<bool>())
+            .Returns(new List<MusicFile> { MakeFile("song.mp3", tempFolder) }.AsReadOnly());
+
+        vm.SetupViewModel.SelectedFolderPath = tempFolder;
+        vm.SetupViewModel.ValidateAndPreviewCommand.Execute(null);
+        await vm.SetupViewModel.ConfirmCommand.ExecuteAsync(null);
+
+        // App should be back in shell with the new source folder
+        Assert.True(vm.IsShellVisible);
+        Assert.Equal(tempFolder, vm.LibraryViewModel.SourceFolderPath);
+        Assert.Equal(tempFolder, vm.Settings!.SourceFolderPath);
+    }
 }

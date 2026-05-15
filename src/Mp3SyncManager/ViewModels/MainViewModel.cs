@@ -84,6 +84,7 @@ public partial class MainViewModel : ViewModelBase
     partial void OnIsCopyingChanged(bool value)
     {
         CopyToDeviceCommand.NotifyCanExecuteChanged();
+        NavigateToSetupCommand.NotifyCanExecuteChanged();
     }
 
     private bool CanCopyToDevice() =>
@@ -242,7 +243,9 @@ public partial class MainViewModel : ViewModelBase
         IsShellVisible = true;
     }
 
-    [RelayCommand]
+    private bool CanNavigateToSetup() => !IsCopying;
+
+    [RelayCommand(CanExecute = nameof(CanNavigateToSetup))]
     public void NavigateToSetup()
     {
         _deviceDetection.StopMonitoring();
