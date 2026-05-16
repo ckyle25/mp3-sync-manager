@@ -42,6 +42,8 @@ public partial class App : Application
         services.AddSingleton<IDeviceDetectionService, DeviceDetectionService>();
         services.AddSingleton<IFileTransferService, FileTransferService>();
         services.AddSingleton<IConfirmationService, ConfirmationService>();
+        services.AddSingleton<IAudioPlayerService, NAudioPlayerService>();
+        services.AddSingleton<IAlbumArtService, AlbumArtService>();
 
         services.AddSingleton<SetupViewModel>();
         services.AddSingleton<LibraryViewModel>();

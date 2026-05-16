@@ -25,6 +25,9 @@ public partial class SetupViewModel : ViewModelBase
     [ObservableProperty]
     private bool _confirmVisible;
 
+    [ObservableProperty]
+    private bool _isLoading;
+
     public event EventHandler<AppSettings>? SetupCompleted;
 
     public SetupViewModel(ISettingsService settingsService, IFileTransferService fileTransfer)
@@ -34,6 +37,38 @@ public partial class SetupViewModel : ViewModelBase
     }
 
     [RelayCommand]
+    public async Task ValidateAndPreviewAsync()
+    {
+        ValidationMessage = null;
+        ConfirmVisible = false;
+
+        if (string.IsNullOrWhiteSpace(SelectedFolderPath) || !Directory.Exists(SelectedFolderPath))
+        {
+            ValidationMessage = "That folder could not be opened. Please try a different one.";
+            return;
+        }
+
+        IsLoading = true;
+        var path = SelectedFolderPath;
+        try
+        {
+            var files = await Task.Run(() => _fileTransfer.ListFiles(path, displayRelativePaths: true));
+            if (files.Count == 0)
+            {
+                ValidationMessage = "No music files were found in that folder. Please choose a folder that contains music.";
+                return;
+            }
+
+            Mp3FileCount = files.Count;
+            ConfirmVisible = true;
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    // Synchronous version used directly in tests.
     public void ValidateAndPreview()
     {
         ValidationMessage = null;

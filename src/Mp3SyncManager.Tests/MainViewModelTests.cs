@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using Avalonia.Media.Imaging;
 using Mp3SyncManager.Models;
 using Mp3SyncManager.Services.Interfaces;
 using Mp3SyncManager.ViewModels;
@@ -26,8 +27,11 @@ public class MainViewModelTests
         var confirmation = Substitute.For<IConfirmationService>();
         confirmation.ConfirmDeleteAsync(Arg.Any<string>()).Returns(Task.FromResult(true));
 
+        var audioPlayer = Substitute.For<IAudioPlayerService>();
+        var albumArtService = Substitute.For<IAlbumArtService>();
+        albumArtService.GetAlbumArtAsync(Arg.Any<string>()).Returns(Task.FromResult<Bitmap?>(null));
         var setupVm = new SetupViewModel(settings, fileTransfer);
-        var libraryVm = new LibraryViewModel(fileTransfer);
+        var libraryVm = new LibraryViewModel(fileTransfer, audioPlayer, albumArtService);
         var deviceVm = new DeviceViewModel(fileTransfer, confirmation);
         var vm = new MainViewModel(settings, detection, fileTransfer, setupVm, libraryVm, deviceVm);
         return (vm, settings, detection, fileTransfer);

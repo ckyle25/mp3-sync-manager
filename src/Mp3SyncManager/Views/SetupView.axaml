@@ -32,6 +32,17 @@
                     Command="{Binding ValidateAndPreviewCommand}"
                     Margin="0,8,0,0" />
 
+            <StackPanel IsVisible="{Binding IsLoading}"
+                        Margin="0,8,0,0"
+                        Spacing="6">
+                <ProgressBar IsIndeterminate="True"
+                             Height="4"
+                             CornerRadius="2" />
+                <TextBlock Text="Checking folder..."
+                           FontSize="13"
+                           Foreground="#555" />
+            </StackPanel>
+
             <TextBlock Text="{Binding ValidationMessage}"
                        Foreground="OrangeRed"
                        TextWrapping="Wrap"

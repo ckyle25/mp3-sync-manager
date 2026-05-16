@@ -1,10 +1,15 @@
 using System.Collections.ObjectModel;
+using Avalonia.Media.Imaging;
+using CommunityToolkit.Mvvm.ComponentModel;
 using Mp3SyncManager.Models;
 
 namespace Mp3SyncManager.ViewModels;
 
-public class LibraryAlbumViewModel
+public partial class LibraryAlbumViewModel : ObservableObject
 {
+    [ObservableProperty]
+    private Bitmap? _albumArt;
+
     public string Name { get; }
     public ObservableCollection<MusicFile> Songs { get; }
 
