@@ -131,4 +131,216 @@ public class LibraryViewModelTests
 
         Assert.Contains("HasSelectedFiles", raisedNames);
     }
+
+    // --- Artist/Album/Song grouping tests ---
+
+    private static MusicFile MakeSong(string sourceRoot, string artist, string album, string fileName, long sizeBytes = 1000) =>
+        new()
+        {
+            FileName = fileName,
+            FullPath = Path.Combine(sourceRoot, artist, album, fileName),
+            FileSizeBytes = sizeBytes
+        };
+
+    [Fact]
+    public void Refresh_GroupsFilesByArtistAndAlbum()
+    {
+        var root = Path.GetTempPath();
+        var song1 = MakeSong(root, "Beatles", "Abbey Road", "Come Together.mp3");
+        var song2 = MakeSong(root, "Beatles", "Abbey Road", "Something.mp3");
+        var song3 = MakeSong(root, "Pink Floyd", "The Wall", "Another Brick.mp3");
+
+        _fileTransfer.ListFiles(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>())
+            .Returns(new List<MusicFile> { song1, song2, song3 }.AsReadOnly());
+
+        _sut.SourceFolderPath = root;
+
+        Assert.Equal(2, _sut.Artists.Count);
+        Assert.Equal("Beatles", _sut.Artists[0].Name);
+        Assert.Equal("Pink Floyd", _sut.Artists[1].Name);
+        Assert.Single(_sut.Artists[0].Albums);
+        Assert.Equal("Abbey Road", _sut.Artists[0].Albums[0].AlbumName);
+        Assert.Equal(2, _sut.Artists[0].Albums[0].Songs.Count);
+        Assert.Single(_sut.Artists[1].Albums);
+        Assert.Equal("The Wall", _sut.Artists[1].Albums[0].AlbumName);
+    }
+
+    [Fact]
+    public void HasFiles_IsTrue_WhenArtistsPresentAfterRefresh()
+    {
+        var root = Path.GetTempPath();
+        _fileTransfer.ListFiles(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>())
+            .Returns(new List<MusicFile> { MakeSong(root, "A", "B", "track.mp3") }.AsReadOnly());
+
+        _sut.SourceFolderPath = root;
+
+        Assert.True(_sut.HasFiles);
+    }
+
+    [Fact]
+    public void HasSelectedAlbum_IsFalse_WhenNoAlbumSelected()
+    {
+        Assert.False(_sut.HasSelectedAlbum);
+    }
+
+    [Fact]
+    public void HasSelectedAlbum_IsTrue_WhenAlbumWithSongsSelected()
+    {
+        var root = Path.GetTempPath();
+        _fileTransfer.ListFiles(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>())
+            .Returns(new List<MusicFile> { MakeSong(root, "A", "B", "a.mp3") }.AsReadOnly());
+        _sut.SourceFolderPath = root;
+
+        _sut.SelectedArtist = _sut.Artists[0];
+        _sut.SelectedAlbum = _sut.Artists[0].Albums[0];
+
+        Assert.True(_sut.HasSelectedAlbum);
+    }
+
+    [Fact]
+    public void SelectedArtist_Change_ClearsSelectedAlbum()
+    {
+        var root = Path.GetTempPath();
+        _fileTransfer.ListFiles(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>())
+            .Returns(new List<MusicFile> { MakeSong(root, "A", "B", "a.mp3") }.AsReadOnly());
+        _sut.SourceFolderPath = root;
+
+        _sut.SelectedArtist = _sut.Artists[0];
+        _sut.SelectedAlbum = _sut.Artists[0].Albums[0];
+        Assert.NotNull(_sut.SelectedAlbum);
+
+        _sut.SelectedArtist = null;
+
+        Assert.Null(_sut.SelectedAlbum);
+    }
+
+    [Fact]
+    public void SelectedAlbum_Change_ClearsSelectedFiles()
+    {
+        var root = Path.GetTempPath();
+        var song = MakeSong(root, "A", "B", "a.mp3");
+        _fileTransfer.ListFiles(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>())
+            .Returns(new List<MusicFile> { song }.AsReadOnly());
+        _sut.SourceFolderPath = root;
+
+        _sut.SelectedArtist = _sut.Artists[0];
+        _sut.SelectedAlbum = _sut.Artists[0].Albums[0];
+        _sut.SelectedFiles.Add(song);
+        Assert.True(_sut.HasSelectedFiles);
+
+        _sut.SelectedAlbum = null;
+
+        Assert.False(_sut.HasSelectedFiles);
+    }
+
+    [Fact]
+    public void CurrentAlbums_ReturnsEmpty_WhenNoArtistSelected()
+    {
+        Assert.Empty(_sut.CurrentAlbums);
+    }
+
+    [Fact]
+    public void CurrentAlbums_ReturnsAlbumsForSelectedArtist()
+    {
+        var root = Path.GetTempPath();
+        _fileTransfer.ListFiles(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>())
+            .Returns(new List<MusicFile> { MakeSong(root, "A", "B", "a.mp3") }.AsReadOnly());
+        _sut.SourceFolderPath = root;
+
+        _sut.SelectedArtist = _sut.Artists[0];
+
+        Assert.Single(_sut.CurrentAlbums);
+        Assert.Equal("B", _sut.CurrentAlbums[0].AlbumName);
+    }
+
+    [Fact]
+    public void CurrentSongs_ReturnsEmpty_WhenNoAlbumSelected()
+    {
+        Assert.Empty(_sut.CurrentSongs);
+    }
+
+    [Fact]
+    public void CurrentSongs_ReturnsSongsForSelectedAlbum()
+    {
+        var root = Path.GetTempPath();
+        _fileTransfer.ListFiles(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>())
+            .Returns(new List<MusicFile> { MakeSong(root, "A", "B", "a.mp3") }.AsReadOnly());
+        _sut.SourceFolderPath = root;
+
+        _sut.SelectedArtist = _sut.Artists[0];
+        _sut.SelectedAlbum = _sut.Artists[0].Albums[0];
+
+        Assert.Single(_sut.CurrentSongs);
+        Assert.Equal("a.mp3", _sut.CurrentSongs[0].FileName);
+    }
+
+    [Fact]
+    public void Refresh_ClearsArtistAndAlbumSelection()
+    {
+        var root = Path.GetTempPath();
+        _fileTransfer.ListFiles(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>())
+            .Returns(new List<MusicFile> { MakeSong(root, "A", "B", "a.mp3") }.AsReadOnly());
+        _sut.SourceFolderPath = root;
+
+        _sut.SelectedArtist = _sut.Artists[0];
+        _sut.SelectedAlbum = _sut.Artists[0].Albums[0];
+
+        _sut.Refresh();
+
+        Assert.Null(_sut.SelectedArtist);
+        Assert.Null(_sut.SelectedAlbum);
+    }
+
+    [Fact]
+    public void HasArtistSelection_IsFalse_WhenNoArtistSelected()
+    {
+        Assert.False(_sut.HasArtistSelection);
+    }
+
+    [Fact]
+    public void HasArtistSelection_IsTrue_WhenArtistSelected()
+    {
+        var root = Path.GetTempPath();
+        _fileTransfer.ListFiles(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>())
+            .Returns(new List<MusicFile> { MakeSong(root, "A", "B", "a.mp3") }.AsReadOnly());
+        _sut.SourceFolderPath = root;
+
+        _sut.SelectedArtist = _sut.Artists[0];
+
+        Assert.True(_sut.HasArtistSelection);
+    }
+
+    [Fact]
+    public void Artists_SortedAlphabetically_AfterRefresh()
+    {
+        var root = Path.GetTempPath();
+        var songs = new List<MusicFile>
+        {
+            MakeSong(root, "Zeppelin", "IV", "z.mp3"),
+            MakeSong(root, "ABBA", "Arrival", "a.mp3"),
+        };
+        _fileTransfer.ListFiles(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>()).Returns(songs.AsReadOnly());
+
+        _sut.SourceFolderPath = root;
+
+        Assert.Equal("ABBA", _sut.Artists[0].Name);
+        Assert.Equal("Zeppelin", _sut.Artists[1].Name);
+    }
+
+    [Fact]
+    public void HasSelectedAlbum_PropertyChanged_RaisedWhenAlbumSet()
+    {
+        var root = Path.GetTempPath();
+        _fileTransfer.ListFiles(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>())
+            .Returns(new List<MusicFile> { MakeSong(root, "A", "B", "a.mp3") }.AsReadOnly());
+        _sut.SourceFolderPath = root;
+        _sut.SelectedArtist = _sut.Artists[0];
+
+        var raised = new List<string?>();
+        _sut.PropertyChanged += (_, e) => raised.Add(e.PropertyName);
+
+        _sut.SelectedAlbum = _sut.Artists[0].Albums[0];
+
+        Assert.Contains(nameof(_sut.HasSelectedAlbum), raised);
+    }
 }

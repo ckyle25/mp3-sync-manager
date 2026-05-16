@@ -1,35 +1,14 @@
 namespace Mp3SyncManager.ViewModels;
 
-// Partial extension of LibraryViewModel that exposes a computed HasFiles property.
-// The main LibraryViewModel.cs file raises PropertyChanged for "Files" whenever
-// the collection is replaced; we hook that to also notify HasFiles.
+// Partial extension of LibraryViewModel that manages collection-change subscriptions
+// for SelectedFiles (to keep HasSelectedFiles in sync).
+// HasFiles and ShowEmptyLibraryMessage are driven by the [NotifyPropertyChangedFor]
+// attributes on the Artists property in LibraryViewModel.cs.
 public partial class LibraryViewModel
 {
-    public bool HasFiles => Files.Count > 0;
+    public bool HasFiles => Artists.Count > 0;
 
     public bool ShowEmptyLibraryMessage => !SourceFolderMissing && !HasFiles;
-
-    private System.Collections.Specialized.NotifyCollectionChangedEventHandler? _filesCollectionChangedHandler;
-
-    partial void OnFilesChanging(System.Collections.ObjectModel.ObservableCollection<Mp3SyncManager.Models.MusicFile>? oldValue,
-        System.Collections.ObjectModel.ObservableCollection<Mp3SyncManager.Models.MusicFile> newValue)
-    {
-        if (oldValue is not null && _filesCollectionChangedHandler is not null)
-            oldValue.CollectionChanged -= _filesCollectionChangedHandler;
-    }
-
-    partial void OnFilesChanged(System.Collections.ObjectModel.ObservableCollection<Mp3SyncManager.Models.MusicFile> value)
-    {
-        OnPropertyChanged(nameof(HasFiles));
-        OnPropertyChanged(nameof(ShowEmptyLibraryMessage));
-
-        _filesCollectionChangedHandler = (_, _) =>
-        {
-            OnPropertyChanged(nameof(HasFiles));
-            OnPropertyChanged(nameof(ShowEmptyLibraryMessage));
-        };
-        value.CollectionChanged += _filesCollectionChangedHandler;
-    }
 
     private System.Collections.Specialized.NotifyCollectionChangedEventHandler? _selectedFilesCollectionChangedHandler;
 

@@ -39,6 +39,17 @@ public class MainViewModelTests
     private static MusicFile MakeFile(string name = "song.mp3", string root = @"C:\Music") =>
         new MusicFile { FileName = name, FullPath = $@"{root}\{name}", FileSizeBytes = 1024 };
 
+    private static LibraryAlbumViewModel MakeAlbum(string artist = "Beatles", string album = "Abbey Road", params MusicFile[] songs)
+    {
+        var songList = songs.Length > 0 ? songs : new[] { MakeFile() };
+        return new LibraryAlbumViewModel
+        {
+            ArtistName = artist,
+            AlbumName = album,
+            Songs = songList.ToList().AsReadOnly()
+        };
+    }
+
     [Fact]
     public async Task InitializeAsync_WhenNotConfigured_IsShellVisibleFalse_CurrentPageIsSetup()
     {
@@ -675,5 +686,126 @@ public class MainViewModelTests
         Assert.True(vm.IsShellVisible);
         Assert.Equal(tempFolder, vm.LibraryViewModel.SourceFolderPath);
         Assert.Equal(tempFolder, vm.Settings!.SourceFolderPath);
+    }
+
+    // --- Album copy tests ---
+
+    [Fact]
+    public async Task CopyAlbumToDevice_CopiesAllSongsInAlbum()
+    {
+        var (vm, _, _, fileTransfer) = BuildSut(loadResult: new AppSettings { SourceFolderPath = @"C:\Music" });
+        vm.DeviceViewModel.ActiveDevice = MakeDevice();
+        vm.LibraryViewModel.SourceFolderPath = @"C:\Music";
+
+        var file1 = MakeFile("a.mp3");
+        var file2 = MakeFile("b.mp3");
+        vm.LibraryViewModel.SelectedAlbum = MakeAlbum("Beatles", "Abbey Road", file1, file2);
+
+        fileTransfer.CopyFileAsync(
+            Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(),
+            Arg.Any<IProgress<TransferProgress>?>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+            .Returns(Task.CompletedTask);
+
+        await vm.CopyAlbumToDeviceAsync();
+
+        await fileTransfer.Received(2).CopyFileAsync(
+            Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(),
+            Arg.Any<IProgress<TransferProgress>?>(), false, Arg.Any<CancellationToken>());
+        Assert.False(vm.IsCopying);
+        Assert.NotNull(vm.CopyStatusMessage);
+    }
+
+    [Fact]
+    public async Task CopyAlbumToDevice_NoAlbumSelected_DoesNotCopy()
+    {
+        var (vm, _, _, fileTransfer) = BuildSut(loadResult: new AppSettings { SourceFolderPath = @"C:\Music" });
+        vm.DeviceViewModel.ActiveDevice = MakeDevice();
+
+        await vm.CopyAlbumToDeviceAsync();
+
+        await fileTransfer.DidNotReceive().CopyFileAsync(
+            Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(),
+            Arg.Any<IProgress<TransferProgress>?>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
+        Assert.False(vm.IsCopying);
+    }
+
+    [Fact]
+    public async Task CopyAlbumToDevice_NoDevice_DoesNotCopy()
+    {
+        var (vm, _, _, fileTransfer) = BuildSut(loadResult: new AppSettings { SourceFolderPath = @"C:\Music" });
+        vm.LibraryViewModel.SelectedAlbum = MakeAlbum(songs: MakeFile());
+
+        await vm.CopyAlbumToDeviceAsync();
+
+        await fileTransfer.DidNotReceive().CopyFileAsync(
+            Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(),
+            Arg.Any<IProgress<TransferProgress>?>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
+        Assert.False(vm.IsCopying);
+    }
+
+    [Fact]
+    public void CopyAlbumToDeviceCommand_CanExecute_WhenAlbumSelectedAndDeviceSet()
+    {
+        var (vm, _, _, _) = BuildSut();
+        vm.DeviceViewModel.ActiveDevice = MakeDevice();
+        vm.LibraryViewModel.SelectedAlbum = MakeAlbum(songs: MakeFile());
+
+        Assert.True(vm.CopyAlbumToDeviceCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public void CopyAlbumToDeviceCommand_CannotExecute_WhenNoAlbumSelected()
+    {
+        var (vm, _, _, _) = BuildSut();
+        vm.DeviceViewModel.ActiveDevice = MakeDevice();
+
+        Assert.False(vm.CopyAlbumToDeviceCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public void CopyAlbumToDeviceCommand_CannotExecute_WhenNoDevice()
+    {
+        var (vm, _, _, _) = BuildSut();
+        vm.LibraryViewModel.SelectedAlbum = MakeAlbum(songs: MakeFile());
+
+        Assert.False(vm.CopyAlbumToDeviceCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public async Task CopyAlbumToDevice_AllSongsAlreadyOnDevice_ShowsAlreadyOnPlayerMessage()
+    {
+        var (vm, _, _, fileTransfer) = BuildSut(loadResult: new AppSettings { SourceFolderPath = @"C:\Music" });
+        vm.DeviceViewModel.ActiveDevice = MakeDevice();
+        vm.LibraryViewModel.SourceFolderPath = @"C:\Music";
+        vm.LibraryViewModel.SelectedAlbum = MakeAlbum("Beatles", "Abbey Road", MakeFile("a.mp3"), MakeFile("b.mp3"));
+
+        fileTransfer.CopyFileAsync(
+            Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(),
+            Arg.Any<IProgress<TransferProgress>?>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+            .Returns<Task>(_ => throw new FileAlreadyExistsOnDeviceException("track.mp3"));
+
+        await vm.CopyAlbumToDeviceAsync();
+
+        Assert.NotNull(vm.CopyStatusMessage);
+        Assert.Contains("already on the player", vm.CopyStatusMessage, StringComparison.OrdinalIgnoreCase);
+        Assert.False(vm.IsCopying);
+    }
+
+    [Fact]
+    public async Task CopyAlbumToDevice_IsCopying_ResetToFalse_AfterCompletion()
+    {
+        var (vm, _, _, fileTransfer) = BuildSut(loadResult: new AppSettings { SourceFolderPath = @"C:\Music" });
+        vm.DeviceViewModel.ActiveDevice = MakeDevice();
+        vm.LibraryViewModel.SourceFolderPath = @"C:\Music";
+        vm.LibraryViewModel.SelectedAlbum = MakeAlbum(songs: MakeFile());
+
+        fileTransfer.CopyFileAsync(
+            Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(),
+            Arg.Any<IProgress<TransferProgress>?>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+            .Returns(Task.CompletedTask);
+
+        await vm.CopyAlbumToDeviceAsync();
+
+        Assert.False(vm.IsCopying);
     }
 }

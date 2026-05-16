@@ -31,21 +31,32 @@ public partial class LibraryViewModel : ViewModelBase
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasFiles))]
-    private ObservableCollection<MusicFile> _files = [];
+    [NotifyPropertyChangedFor(nameof(ShowEmptyLibraryMessage))]
+    private ObservableCollection<LibraryArtistViewModel> _artists = [];
 
     [ObservableProperty]
-    private MusicFile? _selectedFile;
+    [NotifyPropertyChangedFor(nameof(HasArtistSelection))]
+    [NotifyPropertyChangedFor(nameof(CurrentAlbums))]
+    private LibraryArtistViewModel? _selectedArtist;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasSelectedAlbum))]
+    [NotifyPropertyChangedFor(nameof(CurrentSongs))]
+    private LibraryAlbumViewModel? _selectedAlbum;
 
     [ObservableProperty]
     private ObservableCollection<MusicFile> _selectedFiles = [];
 
     public bool HasSelectedFiles => SelectedFiles.Count > 0;
+    public bool HasArtistSelection => SelectedArtist is not null;
+    public bool HasSelectedAlbum => SelectedAlbum?.Songs.Count > 0;
+
+    public IReadOnlyList<LibraryAlbumViewModel> CurrentAlbums => SelectedArtist?.Albums ?? [];
+    public IReadOnlyList<MusicFile> CurrentSongs => SelectedAlbum?.Songs ?? [];
 
     public LibraryViewModel(IFileTransferService fileTransfer)
     {
         _fileTransfer = fileTransfer;
-        // OnSelectedFilesChanged is never called for the field-initializer default,
-        // so wire CollectionChanged manually here.
         SubscribeSelectedFiles(_selectedFiles);
     }
 
@@ -55,10 +66,56 @@ public partial class LibraryViewModel : ViewModelBase
         Refresh();
     }
 
+    partial void OnSelectedArtistChanged(LibraryArtistViewModel? value)
+    {
+        SelectedAlbum = null;
+    }
+
+    partial void OnSelectedAlbumChanged(LibraryAlbumViewModel? value)
+    {
+        SelectedFiles = [];
+    }
+
     [RelayCommand]
     public void Refresh()
     {
         if (string.IsNullOrWhiteSpace(SourceFolderPath)) return;
-        Files = new ObservableCollection<MusicFile>(_fileTransfer.ListFiles(SourceFolderPath, displayRelativePaths: true));
+        var allFiles = _fileTransfer.ListFiles(SourceFolderPath, displayRelativePaths: false);
+        SelectedArtist = null;
+        Artists = new ObservableCollection<LibraryArtistViewModel>(GroupFiles(allFiles, SourceFolderPath));
+    }
+
+    private static IEnumerable<LibraryArtistViewModel> GroupFiles(IReadOnlyList<MusicFile> files, string sourceRoot)
+    {
+        return files
+            .GroupBy(f => GetSegment(f.FullPath, sourceRoot, 0))
+            .OrderBy(g => g.Key, StringComparer.OrdinalIgnoreCase)
+            .Select(artistGroup => new LibraryArtistViewModel
+            {
+                Name = artistGroup.Key,
+                Albums = artistGroup
+                    .GroupBy(f => GetSegment(f.FullPath, sourceRoot, 1))
+                    .OrderBy(g => g.Key, StringComparer.OrdinalIgnoreCase)
+                    .Select(albumGroup => new LibraryAlbumViewModel
+                    {
+                        ArtistName = artistGroup.Key,
+                        AlbumName = albumGroup.Key,
+                        Songs = albumGroup
+                            .OrderBy(f => f.FileName, StringComparer.OrdinalIgnoreCase)
+                            .ToList()
+                            .AsReadOnly()
+                    })
+                    .ToList()
+                    .AsReadOnly()
+            });
+    }
+
+    private static string GetSegment(string fullPath, string sourceRoot, int depth)
+    {
+        var rel = Path.GetRelativePath(sourceRoot, fullPath);
+        var parts = rel.Split(
+            new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar },
+            StringSplitOptions.RemoveEmptyEntries);
+        return parts.Length >= depth + 2 ? parts[depth] : "(Other)";
     }
 }
