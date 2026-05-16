@@ -72,10 +72,10 @@
                         Padding="16,6" />
             </StackPanel>
 
-            <!-- Panel C: file list -->
+            <!-- Panel C: three-column browser -->
             <DockPanel IsVisible="{Binding HasFiles}">
 
-                <!-- 1. Path label: docked top -->
+                <!-- 1. Source path label: docked top -->
                 <TextBlock DockPanel.Dock="Top"
                            Text="{Binding SourceFolderName, StringFormat='Source: {}{0}'}"
                            FontSize="12"
@@ -84,26 +84,16 @@
                            TextTrimming="CharacterEllipsis"
                            ToolTip.Tip="{Binding SourceFolderPath}" />
 
-                <!-- 2. Action bar: docked bottom (flush at the real bottom) -->
-                <Border DockPanel.Dock="Bottom"
-                        Background="#F5F5F5"
-                        BorderBrush="#E8E8E8"
-                        BorderThickness="0,1,0,0"
-                        Padding="12,10">
-                    <StackPanel Spacing="6">
-                        <Button Content="Add to Player"
-                                Command="{ReflectionBinding $parent[Window].DataContext.CopyToDeviceCommand}"
-                                Padding="16,6"
-                                HorizontalAlignment="Left" />
-                        <TextBlock Text="{ReflectionBinding $parent[Window].DataContext.CopyStatusMessage}"
-                                   IsVisible="{ReflectionBinding $parent[Window].DataContext.CopyStatusMessage, Converter={x:Static conv:ObjectConverters.IsNotNull}}"
-                                   FontSize="12"
-                                   Foreground="#555"
-                                   TextWrapping="Wrap" />
-                    </StackPanel>
-                </Border>
+                <!-- 2. Copy progress filename: docked bottom (above progress bar) -->
+                <TextBlock DockPanel.Dock="Bottom"
+                           Text="{ReflectionBinding $parent[Window].DataContext.CopyProgressFileName}"
+                           IsVisible="{ReflectionBinding $parent[Window].DataContext.IsCopying}"
+                           FontSize="11"
+                           Foreground="#777"
+                           Margin="12,4,12,0"
+                           TextTrimming="CharacterEllipsis" />
 
-                <!-- 3. Progress bar: docked bottom (sits just above the action bar) -->
+                <!-- 3. Progress bar: docked bottom (above action bar) -->
                 <ProgressBar DockPanel.Dock="Bottom"
                              IsVisible="{ReflectionBinding $parent[Window].DataContext.IsCopying}"
                              Value="{ReflectionBinding $parent[Window].DataContext.CopyProgressPercent}"
@@ -113,36 +103,156 @@
                              Margin="0"
                              CornerRadius="0" />
 
-                <!-- 4. Filename label: docked bottom (sits just above the progress bar) -->
-                <TextBlock DockPanel.Dock="Bottom"
-                           Text="{ReflectionBinding $parent[Window].DataContext.CopyProgressFileName}"
-                           IsVisible="{ReflectionBinding $parent[Window].DataContext.IsCopying}"
-                           FontSize="11"
-                           Foreground="#777"
-                           Margin="12,4,12,0"
-                           TextTrimming="CharacterEllipsis" />
+                <!-- 4. Action bar: docked bottom -->
+                <Border DockPanel.Dock="Bottom"
+                        Background="#F5F5F5"
+                        BorderBrush="#E8E8E8"
+                        BorderThickness="0,1,0,0"
+                        Padding="12,10">
+                    <StackPanel Spacing="6">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Button Content="Add Album to Player"
+                                    Command="{ReflectionBinding $parent[Window].DataContext.CopyAlbumToDeviceCommand}"
+                                    IsEnabled="{Binding HasSelectedAlbum}"
+                                    Padding="16,7"
+                                    FontWeight="SemiBold" />
+                            <Button Content="Add Selected Songs"
+                                    Command="{ReflectionBinding $parent[Window].DataContext.CopyToDeviceCommand}"
+                                    IsEnabled="{Binding HasSelectedFiles}"
+                                    Padding="14,7" />
+                        </StackPanel>
+                        <TextBlock Text="{ReflectionBinding $parent[Window].DataContext.CopyStatusMessage}"
+                                   IsVisible="{ReflectionBinding $parent[Window].DataContext.CopyStatusMessage, Converter={x:Static conv:ObjectConverters.IsNotNull}}"
+                                   FontSize="12"
+                                   Foreground="#555"
+                                   TextWrapping="Wrap" />
+                    </StackPanel>
+                </Border>
 
-                <!-- 5. File list: fills remaining space -->
-                <ListBox ItemsSource="{Binding Files}"
-                         SelectionMode="Multiple"
-                         SelectedItems="{Binding SelectedFiles}"
-                         Margin="8,4,8,8">
-                    <ListBox.ItemTemplate>
-                        <DataTemplate x:DataType="models:MusicFile">
-                            <DockPanel Margin="4,3">
-                                <TextBlock DockPanel.Dock="Right"
-                                           Text="{Binding FileSizeFormatted}"
-                                           Foreground="#999"
-                                           FontSize="12"
-                                           VerticalAlignment="Center"
-                                           Margin="12,0,0,0" />
-                                <TextBlock Text="{Binding FileName}"
-                                           TextTrimming="CharacterEllipsis"
-                                           VerticalAlignment="Center" />
-                            </DockPanel>
-                        </DataTemplate>
-                    </ListBox.ItemTemplate>
-                </ListBox>
+                <!-- 5. Three-column browser: fills remaining space -->
+                <Grid ColumnDefinitions="*,Auto,*,Auto,*">
+
+                    <!-- Column 0: Artists -->
+                    <DockPanel Grid.Column="0">
+                        <Border DockPanel.Dock="Top"
+                                Background="#F5F5F5"
+                                BorderBrush="#E8E8E8"
+                                BorderThickness="0,0,0,1"
+                                Padding="12,6">
+                            <TextBlock Text="Artists"
+                                       FontSize="12"
+                                       FontWeight="SemiBold"
+                                       Foreground="#444" />
+                        </Border>
+                        <ListBox ItemsSource="{Binding Artists}"
+                                 SelectedItem="{Binding SelectedArtist}"
+                                 Margin="4">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate x:DataType="vm:LibraryArtistViewModel">
+                                    <TextBlock Text="{Binding Name}"
+                                               Padding="4,3"
+                                               TextTrimming="CharacterEllipsis" />
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </DockPanel>
+
+                    <!-- Divider between Artists and Albums -->
+                    <Rectangle Grid.Column="1"
+                               Width="1"
+                               Fill="#E8E8E8"
+                               HorizontalAlignment="Center" />
+
+                    <!-- Column 1: Albums -->
+                    <DockPanel Grid.Column="2">
+                        <Border DockPanel.Dock="Top"
+                                Background="#F5F5F5"
+                                BorderBrush="#E8E8E8"
+                                BorderThickness="0,0,0,1"
+                                Padding="12,6">
+                            <TextBlock Text="Albums"
+                                       FontSize="12"
+                                       FontWeight="SemiBold"
+                                       Foreground="#444" />
+                        </Border>
+                        <!-- Empty hint when no artist is selected -->
+                        <TextBlock DockPanel.Dock="Top"
+                                   Text="Select an artist to see albums"
+                                   IsVisible="{Binding !HasArtistSelection}"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   Foreground="#999"
+                                   FontSize="12"
+                                   TextWrapping="Wrap"
+                                   TextAlignment="Center"
+                                   Margin="16,24,16,0" />
+                        <ListBox ItemsSource="{Binding CurrentAlbums}"
+                                 SelectedItem="{Binding SelectedAlbum}"
+                                 IsVisible="{Binding HasArtistSelection}"
+                                 Margin="4">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate x:DataType="vm:LibraryAlbumViewModel">
+                                    <TextBlock Text="{Binding Name}"
+                                               Padding="4,3"
+                                               TextTrimming="CharacterEllipsis" />
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </DockPanel>
+
+                    <!-- Divider between Albums and Songs -->
+                    <Rectangle Grid.Column="3"
+                               Width="1"
+                               Fill="#E8E8E8"
+                               HorizontalAlignment="Center" />
+
+                    <!-- Column 2: Songs -->
+                    <DockPanel Grid.Column="4">
+                        <Border DockPanel.Dock="Top"
+                                Background="#F5F5F5"
+                                BorderBrush="#E8E8E8"
+                                BorderThickness="0,0,0,1"
+                                Padding="12,6">
+                            <TextBlock Text="Songs"
+                                       FontSize="12"
+                                       FontWeight="SemiBold"
+                                       Foreground="#444" />
+                        </Border>
+                        <!-- Empty hint when no album is selected -->
+                        <TextBlock DockPanel.Dock="Top"
+                                   Text="Select an album to see songs"
+                                   IsVisible="{Binding !HasSelectedAlbum}"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   Foreground="#999"
+                                   FontSize="12"
+                                   TextWrapping="Wrap"
+                                   TextAlignment="Center"
+                                   Margin="16,24,16,0" />
+                        <ListBox ItemsSource="{Binding CurrentSongs}"
+                                 SelectionMode="Multiple"
+                                 SelectedItems="{Binding SelectedFiles}"
+                                 IsVisible="{Binding HasSelectedAlbum}"
+                                 Margin="4">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate x:DataType="models:MusicFile">
+                                    <DockPanel Margin="4,3">
+                                        <TextBlock DockPanel.Dock="Right"
+                                                   Text="{Binding FileSizeFormatted}"
+                                                   Foreground="#999"
+                                                   FontSize="12"
+                                                   VerticalAlignment="Center"
+                                                   Margin="12,0,0,0" />
+                                        <TextBlock Text="{Binding FileName}"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   VerticalAlignment="Center" />
+                                    </DockPanel>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </DockPanel>
+
+                </Grid>
 
             </DockPanel>
 

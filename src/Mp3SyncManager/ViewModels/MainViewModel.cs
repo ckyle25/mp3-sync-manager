@@ -72,18 +72,24 @@ public partial class MainViewModel : ViewModelBase
         {
             if (e.PropertyName == nameof(LibraryViewModel.HasSelectedFiles))
                 CopyToDeviceCommand.NotifyCanExecuteChanged();
+            if (e.PropertyName == nameof(LibraryViewModel.HasSelectedAlbum))
+                CopyAlbumToDeviceCommand.NotifyCanExecuteChanged();
         };
 
         DeviceViewModel.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName == nameof(DeviceViewModel.ActiveDevice))
+            {
                 CopyToDeviceCommand.NotifyCanExecuteChanged();
+                CopyAlbumToDeviceCommand.NotifyCanExecuteChanged();
+            }
         };
     }
 
     partial void OnIsCopyingChanged(bool value)
     {
         CopyToDeviceCommand.NotifyCanExecuteChanged();
+        CopyAlbumToDeviceCommand.NotifyCanExecuteChanged();
         NavigateToSetupCommand.NotifyCanExecuteChanged();
     }
 
@@ -100,6 +106,30 @@ public partial class MainViewModel : ViewModelBase
             IsCopying)
             return;
 
+        await ExecuteCopyAsync(LibraryViewModel.SelectedFiles.ToList());
+    }
+
+    private bool CanCopyAlbumToDevice() =>
+        !IsCopying &&
+        DeviceViewModel.ActiveDevice is not null &&
+        LibraryViewModel.HasSelectedAlbum;
+
+    [RelayCommand(CanExecute = nameof(CanCopyAlbumToDevice))]
+    public async Task CopyAlbumToDeviceAsync()
+    {
+        if (DeviceViewModel.ActiveDevice is null ||
+            LibraryViewModel.SelectedAlbum is null ||
+            IsCopying)
+            return;
+
+        await ExecuteCopyAsync(LibraryViewModel.SelectedAlbum.Songs.ToList());
+    }
+
+    private async Task ExecuteCopyAsync(List<MusicFile> files)
+    {
+        if (DeviceViewModel.ActiveDevice is null || files.Count == 0)
+            return;
+
         IsCopying = true;
         CopyStatusMessage = null;
         CopyProgressPercent = 0;
@@ -107,7 +137,6 @@ public partial class MainViewModel : ViewModelBase
 
         var device = DeviceViewModel.ActiveDevice;
         var sourceRoot = LibraryViewModel.SourceFolderPath;
-        var files = LibraryViewModel.SelectedFiles.ToList();
         int total = files.Count;
         int completed = 0;
         var skipped = new List<string>();
